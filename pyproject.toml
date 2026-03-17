@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "attnres"
+version = "0.1.0"
+description = "Attention Residuals (arXiv:2603.15031) — research implementation"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",
+    "numpy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "datasets"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["attnres*"]

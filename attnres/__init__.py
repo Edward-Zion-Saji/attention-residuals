@@ -1,17 +1,16 @@
 """
-AttnRes — Attention Residuals library.
+AttnRes — Attention Residuals (arXiv:2603.15031).
 
-Implements the Attention Residuals mechanism from:
-  "Attention Residuals" (Kimi Team, arXiv:2603.15031)
+A research implementation of Block Attention Residuals, which replaces standard
+fixed residual connections with learned softmax attention over preceding layer
+outputs. Models must be trained from scratch with AttnRes; it cannot be applied
+as a post-hoc modification to existing pretrained checkpoints.
 
-Usage:
     from attnres.core import FullAttnRes, BlockAttnRes
-    from attnres.models.hf_wrapper import AttnResWrapper
-    from attnres.inference.engine import AttnResInferenceEngine
+    from attnres.models.gpt_demo import GPTWithAttnRes, GPTConfig
 """
 
 __version__ = "0.1.0"
-__author__ = "AttnRes Contributors"
 
 from .core import FullAttnRes, BlockAttnRes, RMSNorm
 
