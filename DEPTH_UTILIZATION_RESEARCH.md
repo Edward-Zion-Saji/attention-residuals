@@ -1,4 +1,4 @@
-# Are Transformer Layers Actually Doing Anything?
+# Attention Residuals: Are Transformer Layers Actually Doing Anything?
 
 You've probably heard that scaling laws are about to hit a wall. One underappreciated reason why: a meaningful fraction of the layers in your favorite LLM might be doing almost nothing at all.
 
