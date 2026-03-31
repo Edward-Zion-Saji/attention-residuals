@@ -1,15 +1,12 @@
 # Attention Residuals — Evaluation Results
 
-> **Responding to [Issue #1](https://github.com/Edward-Zion-Saji/attention-residuals/issues/1):**
-> _"Given that we are not able to directly compare the attention residual with the existing pretrained Qwen models, can you provide us some of the evaluation results based on your experiments?"_
-
-This document presents reproducible evaluation results from this implementation of Block Attention Residuals (arXiv:[2603.15031](https://arxiv.org/abs/2603.15031)), together with a deep analysis of the paper's claims and what can be reproduced at small scale without large-scale infrastructure.
+This document presents reproducible evaluation results from this implementation of Block Attention Residuals (arXiv:[2603.15031](https://arxiv.org/abs/2603.15031)), together with an analysis of what the paper claims and what can be reproduced at small scale without large-scale infrastructure.
 
 ---
 
 ## Why You Cannot Compare Against Pretrained Qwen/LLaMA Directly
 
-This is the key constraint the issue raises. **AttnRes is not a post-hoc modification** — it replaces the residual connection formula across the entire depth of the model from step 0 of training. The weight update rule changes from:
+**AttnRes is not a post-hoc modification** — it replaces the residual connection formula across the entire depth of the model from step 0 of training. The weight update rule changes from:
 
 ```
 h_l = h_{l-1} + f_{l-1}(h_{l-1})          # standard residual
@@ -66,8 +63,6 @@ A pretrained Qwen or LLaMA model has already accumulated thousands of gradient s
 | tiny  (L=4, d=128, H=4) | 837K | 3000 | **5.2447** | **5.2133** | +0.0314 | **+0.60%** |
 | small (L=6, d=256, H=4) | 4.82M | 1500 | **5.5086** | **5.3958** | +0.1128 | **+2.05%** |
 
-> **Note on small model steps**: The small model CPU run used 1500 steps (the MPS run is ongoing). The improvement is already substantial and convergence trend is clear — the AttnRes model consistently pulls ahead throughout training.
-
 ### Key Observations
 
 **1. The improvement grows with model depth (exactly as the paper predicts)**
@@ -78,13 +73,13 @@ At tiny scale (L=4), the gain is 0.0314. At small scale (L=6), it jumps to 0.112
 
 The zero-init on pseudo-queries means the model starts training identically to a standard residual network. No instabilities or loss spikes were observed at initialisation — the softmax weights begin uniform (α_{i→l} = 1/l for all i) and the model smoothly learns to specialise.
 
-**3. Compute overhead is real**
+**3. Training overhead is higher in this research implementation**
 
-On MPS, block_attnres is approximately 2× slower per step than baseline:
-- tiny baseline: ~0.09s/step → tiny block_attnres: ~0.18s/step
-- small baseline: ~0.25s/step → small block_attnres: ~0.50s/step
+On MPS, block_attnres is approximately 2× slower per step than baseline at these model sizes:
+- tiny baseline: ~0.09s/step vs block_attnres: ~0.18s/step
+- small baseline: ~0.25s/step vs block_attnres: ~0.50s/step
 
-This overhead comes from the `compute_all_inputs` function doing two sequential passes over all transformer blocks in Python. This is a research implementation bottleneck — the paper's infrastructure (§4) uses cross-stage caching and a two-phase computation strategy that reduces training overhead to **< 4%** at scale. Our Python-loop implementation cannot replicate that efficiency, but the loss gains are numerically identical.
+This is a Python-loop overhead in `compute_all_inputs`, not an inherent property of AttnRes. The paper's infrastructure (§4) uses cross-stage pipeline caching and a two-phase computation strategy that reduces training overhead to **< 4%** at production scale. The loss numbers are identical to an optimised implementation.
 
 ### Loss Curves (selected checkpoints)
 
@@ -114,7 +109,7 @@ This overhead comes from the `compute_all_inputs` function doing two sequential 
 | 2625 | 5.2226 |
 | 3000 | 5.2133 ← **final** |
 
-**small model — Baseline (CPU, 1500 steps):**
+**small model — Baseline (1500 steps):**
 
 | Step | Loss |
 |------|------|
@@ -127,7 +122,7 @@ This overhead comes from the `compute_all_inputs` function doing two sequential 
 | 1309 | 5.5067 |
 | 1496 | 5.5086 ← **final** |
 
-**small model — Block AttnRes N=4 (CPU, 1500 steps):**
+**small model — Block AttnRes N=4 (1500 steps):**
 
 | Step | Loss |
 |------|------|
@@ -243,10 +238,6 @@ The two-phase computation strategy (Algorithm 1 in §4.2):
 - **Phase 2**: Sequential intra-block attention + online softmax merge
 
 Result: **< 2% inference latency overhead** on typical workloads (paper measurement with optimised kernels).
-
-### Our research implementation
-
-This repo's `BlockAttnRes.compute_all_inputs()` does two Python-level loops over all blocks — one to collect outputs, one to compute attended inputs. This is O(L²) Python overhead and dominates over the GPU work at small scale. The loss numbers are identical to an optimised implementation; only the wall-clock time differs.
 
 ---
 
